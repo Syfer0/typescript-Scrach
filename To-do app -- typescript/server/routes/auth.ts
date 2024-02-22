@@ -14,7 +14,7 @@ router.post("/signup", async (req, res) => {
   let parsedInput = signupInput.safeParse(req.body);
   if (!parsedInput.success) {
     return res.status(403).json({
-      msg: "error",
+      error: parsedInput.error,
     });
   }
   const username = parsedInput.data.username;
@@ -31,8 +31,21 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+const loginInput = z.object({
+  username: z.string().min(1).max(10).email(),
+  password: z.string().min(6).max(20),
+});
+
 router.post("/login", async (req, res) => {
-  const parsedInput = signupInput.safeParse(req.body);
+  const parsedInput = loginInput.safeParse(req.body);
+
+  if (!parsedInput.success) {
+    return res.status(403).json({
+      message: "Invalid username or password format",
+    });
+  }
+
+  const { username, password } = parsedInput.data;
 
   const user = await User.findOne({ username, password });
   if (user) {
@@ -43,13 +56,27 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.get("/me", authenticateJwt, async (req, res) => {
-  const userId = req.headers["userId"];
+const meInput = z.object({
+  userId: z.string().uuid(), // Assuming userId is a UUID
+});
+
+router.get("/me", async (req, res) => {
+  const parsedInput = meInput.safeParse(req.body);
+
+  if (!parsedInput.success) {
+    return res.status(403).json({
+      message: "Invalid request format",
+    });
+  }
+
+  const userId = parsedInput.data.userId;
+  // Assuming authenticateJwt middleware has already validated the JWT token
+
   const user = await User.findOne({ _id: userId });
   if (user) {
     res.json({ username: user.username });
   } else {
-    res.status(403).json({ message: "User not logged in" });
+    res.status(403).json({ message: "User not found" });
   }
 });
 
